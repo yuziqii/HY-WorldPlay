@@ -36,7 +36,7 @@
 https://github.com/user-attachments/assets/9fd12b40-41ab-4201-8667-8b333db1123d
 
 ## 🔥 News
-- March 8, 2026: 🚀 We release the RL post-training framework [WorldCompass](worldcompass/README.md) for WorldPlay-8B model (based on HY Video)!
+- March 8, 2026: 🚀 We release the RL post-training code 🧭 [WorldCompass](worldcompass/README.md) for WorldPlay-8B model (based on HY Video)! Read more in [our new paper](https://arxiv.org/abs/2602.09022).
 - January 6, 2026: 🚀 We release the training code for WorldPlay-8B model (based on HY Video), enabling the community to train and fine-tune their own world models!
 - January 6, 2026: 🎯 We open-source WorldPlay-5B model (based on WAN), a new lightweight model that fits into small-VRAM GPUs (but with compromised quality)!
 - January 3, 2026: ⚡ We update the inference code with quantization and engineering optimization for even faster inference speeds!
@@ -389,18 +389,18 @@ https://github.com/user-attachments/assets/b883a748-cc77-480f-b6a0-e94b6ce9efea
   year={2025}
 }
 
-@article{wang2026worldcompass,
-  title={WorldCompass: Reinforcement Learning for Long-Horizon World Models},
-  author={Wang, Zehan and Wang, Tengfei and Zhang, Haiyu and Zuo, Xuhui and Wu, Junta and Wang, Haoyuan and Sun, Wenqiang and Wang, Zhenwei and Cao, Chenjie and Zhao, Hengshuang and others},
-  journal={arXiv preprint},
-  year={2026}
-}
-
 @article{worldplay2025,
     title={WorldPlay: Towards Long-Term Geometric Consistency for Real-Time Interactive World Model},
     author={Wenqiang Sun and Haiyu Zhang and Haoyuan Wang and Junta Wu and Zehan Wang and Zhenwei Wang and Yunhong Wang and Jun Zhang and Tengfei Wang and Chunchao Guo},
     year={2025},
     journal={arXiv preprint}
+}
+
+@article{wang2026worldcompass,
+  title={WorldCompass: Reinforcement Learning for Long-Horizon World Models},
+  author={Wang, Zehan and Wang, Tengfei and Zhang, Haiyu and Zuo, Xuhui and Wu, Junta and Wang, Haoyuan and Sun, Wenqiang and Wang, Zhenwei and Cao, Chenjie and Zhao, Hengshuang and others},
+  journal={arXiv preprint},
+  year={2026}
 }
 ```
 
