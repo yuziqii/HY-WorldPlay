@@ -52,10 +52,13 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 if is_ftfy_available():
     import ftfy
+else:
+    ftfy = None
 
 
 def basic_clean(text):
-    text = ftfy.fix_text(text)
+    if ftfy is not None:
+        text = ftfy.fix_text(text)
     text = html.unescape(html.unescape(text))
     return text.strip()
 
@@ -704,8 +707,7 @@ class WanPipeline(DiffusionPipeline, WanLoraLoaderMixin):
                 first_image_condition = (first_image_condition - latents_mean) * latents_std
 
 
-            self.use_kv_cache = False
-            self.init_kv_cache()
+            self.init_kv_cache()  # sets self.use_kv_cache = True internally
 
             self._decode_state = {
                 "current_latent_idx": 0,
