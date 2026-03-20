@@ -59,8 +59,8 @@ https://github.com/user-attachments/assets/9fd12b40-41ab-4201-8667-8b333db1123d
 - [📜 System Requirements](#-system-requirements)
 - [🛠️ Dependencies and Installation](#️-dependencies-and-installation)
   - [1. Create Environment](#1-create-environment)
-  - [2. Install Attention Libraries (Optional but Recommended)](#2-install-attention-libraries-optional-but-recommended)
-  - [3. Install AngelSlim and DeepGEMM](#3-install-angelslim-and-deepgemm)
+  - [2. Install Attention Libraries](#2-install-attention-libraries)
+  - [3. Install AngelSlim and DeepGEMM (Optional)](#3-install-angelslim-and-deepgemm-optional-for-quantizationfp8-acceleration)
   - [4. Download All Required Models](#4-download-all-required-models)
 - [🎮 Quick Start](#-quick-start)
 - [🧱 Model Checkpoints](#-model-checkpoints)
@@ -129,33 +129,34 @@ conda activate worldplay
 pip install -r requirements.txt
 ```
 
-### 2. Install Attention Libraries (Optional but Recommended)
-* Flash Attention: 
-  Install Flash Attention for faster inference and reduced GPU memory consumption:
+### 2. Install Attention Libraries
+* SageAttention (**Required** for the WAN pipeline, optional for HunyuanVideo):
+  ```bash
+  pip install sageattention
+  ```
+  Alternatively, you can build from source for potentially better performance:
+  ```bash
+  git clone https://github.com/cooper1637/SageAttention.git
+  cd SageAttention
+  export EXT_PARALLEL=4 NVCC_APPEND_FLAGS="--threads 8" MAX_JOBS=32 # Optional
+  python3 setup.py install
+  ```
+
+* Flash Attention (optional, for faster HunyuanVideo inference):
   ```bash
   pip install flash-attn --no-build-isolation
   ```
   Detailed instructions: [Flash Attention](https://github.com/Dao-AILab/flash-attention)
 
-
-* SageAttention: 
-  To enable SageAttention for faster inference, you need to install it by the following command:
-  ```bash
-  git clone https://github.com/cooper1637/SageAttention.git
-  cd SageAttention 
-  export EXT_PARALLEL=4 NVCC_APPEND_FLAGS="--threads 8" MAX_JOBS=32 # Optional
-  python3 setup.py install
-  ```
-
-### 3. Install AngelSlim and DeepGEMM
-* AngelSlim: 
-  Install AngelSlim to quantize transformer.
+### 3. Install AngelSlim and DeepGEMM (Optional, for quantization/fp8 acceleration)
+* AngelSlim:
+  Install AngelSlim to quantize transformer. Only needed if you enable `--use_fp8_gemm true` in `run.sh`.
   ```bash
   pip install angelslim==0.2.2
   ```
 
-* DeepGEMM: 
-  To enable fp8 gemm for transformer, you need to install it by the following command:
+* DeepGEMM:
+  To enable fp8 gemm for transformer. Only needed if you enable `--use_fp8_gemm true` in `run.sh`.
   ```bash
   git clone --recursive git@github.com:deepseek-ai/DeepGEMM.git
   cd DeepGEMM
@@ -165,7 +166,15 @@ pip install -r requirements.txt
 
 ### 4. Download All Required Models
 
-We provide a download script that automatically downloads all required models:
+Download the pretrained HunyuanVideo-1.5 base model by following the [HunyuanVideo-1.5 download instructions](https://huggingface.co/tencent/HunyuanVideo-1.5#-download-pretrained-models). The pipeline uses the [480P-I2V model](https://huggingface.co/tencent/HunyuanVideo-1.5/tree/main/transformer/480p_i2v).
+
+You also need the following models placed under the HunyuanVideo-1.5 model directory (`MODEL_PATH`):
+- **Text encoder**: [Qwen2.5-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct) → `text_encoder/llm/`
+- **ByT5 encoder**: [google/byt5-small](https://huggingface.co/google/byt5-small) → `text_encoder/byt5-small/`
+- **Glyph encoder**: [AI-ModelScope/Glyph-SDXL-v2](https://modelscope.cn/models/AI-ModelScope/Glyph-SDXL-v2) → `text_encoder/Glyph-SDXL-v2/`
+- **Vision encoder**: [FLUX.1-Redux-dev](https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev) (gated, requires access) → `vision_encoder/siglip/`
+
+**Alternatively**, we provide a download script that automatically downloads and organizes all required models:
 
 ```bash
 python download_models.py --hf_token <your_huggingface_token>
@@ -176,17 +185,10 @@ python download_models.py --hf_token <your_huggingface_token>
 2. Wait for approval (usually instant)
 3. Create/get your access token at: https://huggingface.co/settings/tokens (select "Read" permission)
 
-If you don't have FLUX access yet, you can skip the vision encoder:
+If you don't have FLUX access yet, you can skip the vision encoder (only for WAN pipeline; the HunyuanVideo pipeline requires the vision encoder):
 ```bash
 python download_models.py --skip_vision_encoder
 ```
-
-The script downloads:
-- **HY-WorldPlay** action models (~32GB each)
-- **HunyuanVideo-1.5** base model (vae, scheduler, 480p transformer)
-- **Qwen2.5-VL-7B-Instruct** text encoder (~15GB)
-- **ByT5** encoders (byt5-small + Glyph-SDXL-v2)
-- **SigLIP** vision encoder (from FLUX.1-Redux-dev)
 
 After download completes, the script will print the model paths to add to `run.sh`.
 
@@ -228,12 +230,13 @@ After running `download_models.py`, update `run.sh` with the printed model paths
 ```bash
 # These paths are printed by download_models.py after download completes
 MODEL_PATH=<path_printed_by_download_script>
-AR_ACTION_MODEL_PATH=<path_printed_by_download_script>/ar_model
-AR_RL_ACTION_MODEL_PATH=<path_printed_by_download_script>/ar_rl_model
-BI_ACTION_MODEL_PATH=<path_printed_by_download_script>/bidirectional_model
-AR_DISTILL_ACTION_MODEL_PATH=<path_printed_by_download_script>/ar_distilled_action_model
-
+AR_ACTION_MODEL_PATH=<path_printed_by_download_script>/ar_model/diffusion_pytorch_model.safetensors
+AR_RL_ACTION_MODEL_PATH=<path_printed_by_download_script>/ar_rl_model/diffusion_pytorch_model.safetensors
+BI_ACTION_MODEL_PATH=<path_printed_by_download_script>/bidirectional_model/diffusion_pytorch_model.safetensors
+AR_DISTILL_ACTION_MODEL_PATH=<path_printed_by_download_script>/ar_distilled_action_model/diffusion_pytorch_model.safetensors
 ```
+
+> **Note:** The action model paths (`AR_ACTION_MODEL_PATH`, etc.) should point to the **`.safetensors` file**, not the directory.
 
 #### Configuration Options
 

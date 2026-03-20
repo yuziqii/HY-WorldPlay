@@ -1,3 +1,5 @@
+export PYTHONPATH=$(cd "$(dirname "$0")" && pwd):$PYTHONPATH
+
 export T2V_REWRITE_BASE_URL="<your_vllm_server_base_url>"
 export T2V_REWRITE_MODEL_NAME="<your_model_name>"
 export I2V_REWRITE_BASE_URL="<your_vllm_server_base_url>"
