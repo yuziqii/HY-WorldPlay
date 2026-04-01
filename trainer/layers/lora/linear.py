@@ -20,7 +20,10 @@ from trainer.layers.linear import (ColumnParallelLinear, LinearBase,
 from trainer.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from trainer.utils import get_mixed_precision_state
 
-torch._dynamo.config.recompile_limit = 16
+try:
+    torch._dynamo.config.recompile_limit = 16
+except AttributeError:
+    pass  # removed in PyTorch 2.6+
 
 
 class BaseLayerWithLoRA(nn.Module):
@@ -346,10 +349,67 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
         return B
 
 
+class LinearWithLoRA(nn.Module):
+    """LoRA wrapper for standard nn.Linear layers."""
+
+    def __init__(
+        self,
+        base_layer: nn.Linear,
+        lora_rank: int | None = None,
+        lora_alpha: int | None = None,
+        training_mode: bool = False,
+    ):
+        super().__init__()
+        self.base_layer = base_layer
+        self.merged = False
+        self.disable_lora = False
+        self.lora_rank = lora_rank
+        self.lora_alpha = lora_alpha if lora_alpha is not None else lora_rank
+        self.training_mode = training_mode
+
+        if training_mode:
+            assert lora_rank is not None
+            self.base_layer.requires_grad_(False)
+            in_dim = base_layer.weight.shape[1]
+            out_dim = base_layer.weight.shape[0]
+            self.lora_A = nn.Parameter(
+                torch.zeros(lora_rank, in_dim,
+                            device=base_layer.weight.device,
+                            dtype=base_layer.weight.dtype))
+            self.lora_B = nn.Parameter(
+                torch.zeros(out_dim, lora_rank,
+                            device=base_layer.weight.device,
+                            dtype=base_layer.weight.dtype))
+            torch.nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            torch.nn.init.kaiming_uniform_(self.lora_B, a=math.sqrt(5))
+        else:
+            self.lora_A = None
+            self.lora_B = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        lora_A = self.lora_A
+        lora_B = self.lora_B
+        if isinstance(lora_B, DTensor):
+            lora_B = lora_B.to_local()
+            lora_A = lora_A.to_local()
+
+        out = self.base_layer(x)
+        if (self.training_mode or not self.merged) and not self.disable_lora and lora_A is not None:
+            delta = x @ (lora_B.to(x.dtype) @ lora_A.to(x.dtype)).T
+            if self.lora_alpha != self.lora_rank:
+                delta = delta * (self.lora_alpha / self.lora_rank)
+            out = out + delta
+        return out
+
+
 def get_lora_layer(layer: nn.Module,
                    lora_rank: int | None = None,
                    lora_alpha: int | None = None,
                    training_mode: bool = False) -> BaseLayerWithLoRA | None:
+    # nn.Linear must be checked first (before custom parallel layers)
+    if type(layer) is nn.Linear:
+        return LinearWithLoRA(layer, lora_rank, lora_alpha, training_mode)
+
     supported_layer_types: dict[type[LinearBase], type[BaseLayerWithLoRA]] = {
         # the order matters
         # VocabParallelEmbedding: VocabParallelEmbeddingWithLoRA,

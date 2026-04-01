@@ -62,8 +62,8 @@ class LoRAPipeline(ComposedPipelineBase):
                         self.lora_rank, self.lora_alpha)
             if self.lora_target_modules is None:
                 self.lora_target_modules = [
-                    "q_proj", "k_proj", "v_proj", "o_proj", "to_q", "to_k",
-                    "to_v", "to_out", "to_qkv"
+                    "img_attn_q", "img_attn_k", "img_attn_v", "img_attn_proj",
+                    "txt_attn_q", "txt_attn_k", "txt_attn_v", "txt_attn_proj",
                 ]
             self.convert_to_lora_layers()
         # Inference
@@ -87,19 +87,24 @@ class LoRAPipeline(ComposedPipelineBase):
             super().set_trainable()
             return
 
+        from trainer.layers.lora.linear import LinearWithLoRA
         self.modules["transformer"].requires_grad_(False)
         device_mesh = init_device_mesh("cuda", (dist.get_world_size(), 1),
                                        mesh_dim_names=["fake", "replicate"])
         for name, layer in self.lora_layers.items():
-            # Enable grads for lora weights only
-            # Must convert to DTensor for compatibility with other FSDP modules in grad calculation
-            layer.lora_A.requires_grad_(True)
-            layer.lora_B.requires_grad_(True)
             layer.base_layer.requires_grad_(False)
-            layer.lora_A = nn.Parameter(
-                DTensor.from_local(layer.lora_A, device_mesh=device_mesh))
-            layer.lora_B = nn.Parameter(
-                DTensor.from_local(layer.lora_B, device_mesh=device_mesh))
+            if isinstance(layer, LinearWithLoRA):
+                # Plain nn.Linear LoRA: no DTensor needed, just enable grads directly
+                layer.lora_A.requires_grad_(True)
+                layer.lora_B.requires_grad_(True)
+            else:
+                # Custom parallel layers: convert to DTensor for FSDP compatibility
+                layer.lora_A.requires_grad_(True)
+                layer.lora_B.requires_grad_(True)
+                layer.lora_A = nn.Parameter(
+                    DTensor.from_local(layer.lora_A, device_mesh=device_mesh))
+                layer.lora_B = nn.Parameter(
+                    DTensor.from_local(layer.lora_B, device_mesh=device_mesh))
 
     def convert_to_lora_layers(self) -> None:
         """
