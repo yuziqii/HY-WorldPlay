@@ -1,0 +1,32 @@
+# 数据预处理专用依赖
+# 用于 datasets/preprocess/hy_preprocess/preprocess.py
+
+# 核心深度学习框架
+torch>=2.6.0
+torchvision>=0.21.0
+numpy>=1.26.4
+
+# 视频处理
+decord>=0.6.0
+imageio>=2.37.0
+imageio-ffmpeg>=0.6.0
+moviepy>=1.0.3
+pillow>=11.3.0
+
+# 数据处理
+scipy>=1.10.0
+pandas>=2.0.0
+
+# 日志和进度
+loguru>=0.7.3
+tqdm>=4.67.1
+
+# HunyuanVideo 模型依赖
+diffusers>=0.35.0
+transformers>=4.56.0
+safetensors>=0.4.5
+omegaconf>=2.3.0
+einops>=0.8.0
+
+# 其他工具
+ftfy>=6.1.0
